@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="{{theme}}">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>{{title}} · {{tagline}}</title>
+<meta name="description" content="{{description}}" />
+<meta name="author" content="{{author}}" />
+<meta name="theme-color" content="{{accent}}" />
+<meta name="color-scheme" content="light dark" />
+<link rel="icon" href="{{base}}favicon.svg" type="image/svg+xml" />
+<link rel="canonical" href="{{siteUrl}}" />
+<link rel="alternate" type="application/atom+xml" title="{{title}}" href="{{base}}feed.xml" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="{{title}}" />
+<meta property="og:title" content="{{title}} · {{tagline}}" />
+<meta property="og:description" content="{{description}}" />
+<meta property="og:url" content="{{siteUrl}}" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="{{title}} · {{tagline}}" />
+<meta name="twitter:description" content="{{description}}" />
+{{fontLink}}
+<link rel="stylesheet" href="{{base}}styles.css" />
+<style>:root{--accent:{{accent}}}</style>
+<script>
+  // Set the theme before first paint so the page never flashes.
+  try {
+    var saved = localStorage.getItem('notebook-theme');
+    if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+    else if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
+    else document.documentElement.dataset.theme = 'light';
+  } catch (e) {}
+</script>
+</head>
+<body>
+<div class="atmosphere" aria-hidden="true"></div>
+<div class="read-progress" id="read-progress" aria-hidden="true"></div>
+
+<div class="shell">
+  <header class="masthead">
+    <a class="seal" href="{{base}}" aria-label="回到首页">{{sealChar}}</a>
+    <h1>{{title}}</h1>
+    <span class="latin">{{subtitle}}</span>
+    <p class="tagline">{{tagline}}</p>
+    <div class="stats">
+      <span><b>{{count}}</b> 张卡片</span>
+      <span>最近更新 <b>{{updated}}</b></span>
+      <span>箴言均长 <b>{{avgLen}}</b> 字</span>
+    </div>
+  </header>
+
+  <nav class="toolbar" aria-label="筛选与搜索">
+    <div class="toolbar-inner">
+      <div class="chips" id="chips">{{chips}}</div>
+      <div class="tools">
+      <label class="search" title="搜索箴言、故事或标签">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+        <input id="q" type="search" placeholder="搜索…" aria-label="搜索卡片" autocomplete="off" />
+      </label>
+      <button class="tool" id="random" type="button" title="随机打开一张卡片">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M16 3h5v5"/><path d="M21 3 12.5 11.5"/><path d="M8 21H3v-5"/><path d="M3 21l8.5-8.5"/></svg>
+        偶然一笺
+      </button>
+      <button class="tool" id="theme-toggle" type="button" title="切换明暗主题" aria-label="切换主题">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true" hidden><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.4M12 19.6V22M2 12h2.4M19.6 12H22M4.9 4.9l1.7 1.7M17.4 17.4l1.7 1.7M19.1 4.9l-1.7 1.7M6.6 17.4l-1.7 1.7"/></svg>
+      </button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="grid" id="grid">
+{{cards}}
+  </main>
+</div>
+
+<section class="installer" id="install">
+  <div class="shell installer-grid">
+    <div>
+      <span class="section-label">Skill</span>
+      <h2>让 AI 替你写下一张</h2>
+      <p>这个站点不是手写维护的，它由 <b>skill/{{skillName}}</b> 生成：把你的 AI Agent 装上这个 skill，它会自己找到你名下的同名仓库（没有就新建）、认真思考、写下箴言与旅程，然后提交推送。提交即部署。</p>
+      <ol class="steps">
+        <li>复制下面的安装命令，在本机终端执行一次。</li>
+        <li>在 Codex / Claude Code / 任意能跑命令的 Agent 里，粘贴旁边那段提示词。</li>
+        <li>Agent 会用「新闻沉思 / 会话回望 / 悬问求索 / 生活即景」等模式思考多轮，写出卡片并推送。</li>
+        <li>GitHub Actions 自动构建，站点几秒后更新。</li>
+      </ol>
+    </div>
+    <div>
+      <div class="code-card">
+        <header>
+          <span>① 安装命令</span>
+          <span class="spacer"></span>
+          <button class="copy-btn" type="button" data-copy="#cmd-install">复制</button>
+        </header>
+        <pre id="cmd-install"><code>curl -fsSL {{siteUrl}}skill/install.sh | bash</code></pre>
+      </div>
+      <div class="code-card">
+        <header>
+          <span>② 交给 Agent 的提示词</span>
+          <span class="spacer"></span>
+          <button class="copy-btn" type="button" data-copy="#cmd-prompt">复制</button>
+        </header>
+        <pre id="cmd-prompt"><code>{{agentPrompt}}</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="shell">
+  <footer class="foot">
+    <span>{{author}} · <a href="{{repoUrl}}" target="_blank" rel="noopener">源码在 GitHub</a> · 提交即构建</span>
+    <span class="foot-links">
+      <a href="{{base}}feed.xml">订阅 RSS</a>
+      <a href="{{repoUrl}}/tree/main/skill/{{skillName}}" target="_blank" rel="noopener">skill 源码</a>
+      <a href="#install">安装 skill</a>
+      <span>共 {{count}} 张 · <span id="foot-updated">{{updated}}</span></span>
+    </span>
+  </footer>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="overlay-backdrop" data-close></div>
+  <div class="panel" role="dialog" aria-modal="true" aria-labelledby="panel-line" aria-describedby="panel-meta">
+    <div class="panel-head">
+      <span class="mode" id="panel-mode"></span>
+      <span class="spacer"></span>
+      <button class="icon-btn" id="panel-copy" type="button" title="复制这张卡片">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1"/></svg>
+        复制
+      </button>
+      <button class="icon-btn" id="panel-close" type="button" title="关闭 (Esc)" aria-label="关闭">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="panel-scroll" id="panel-scroll">
+      <h2 class="panel-line" id="panel-line"></h2>
+      <div class="panel-meta" id="panel-meta"></div>
+      <div class="panel-rule"></div>
+      <p class="seed-note" id="panel-seed" hidden></p>
+      <blockquote class="pull-quote" id="panel-quote" hidden></blockquote>
+      <div class="journey" id="panel-journey"></div>
+      <div class="page-foot">
+        <a class="icon-btn" id="panel-permalink" href="#">直达链接</a>
+      </div>
+    </div>
+    <div class="panel-foot">
+      <button class="icon-btn nav-btn" id="panel-prev" type="button" title="上一张 (←)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M14 6l-6 6 6 6"/></svg>
+        上一张
+      </button>
+      <button class="icon-btn nav-btn" id="panel-random" type="button" title="随机 (R)">偶然</button>
+      <button class="icon-btn nav-btn" id="panel-next" type="button" title="下一张 (→)">
+        下一张
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 6l6 6-6 6"/></svg>
+      </button>
+      <span class="spacer"></span>
+      <span><b id="panel-index"></b> · <kbd>←</kbd><kbd>→</kbd> 翻页 · <kbd>Esc</kbd> 合上</span>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script id="notebook-data" type="application/json">{{data}}</script>
+<script src="{{base}}app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="{{theme}}">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>{{title}} · {{siteTitle}}</title>
+<meta name="description" content="{{description}}" />
+<meta name="author" content="{{author}}" />
+<meta name="theme-color" content="{{accent}}" />
+<link rel="icon" href="{{base}}favicon.svg" type="image/svg+xml" />
+<link rel="canonical" href="{{cardUrl}}" />
+<meta property="og:type" content="article" />
+<meta property="og:site_name" content="{{siteTitle}}" />
+<meta property="og:title" content="{{title}}" />
+<meta property="og:description" content="{{excerpt}}" />
+<meta property="og:url" content="{{cardUrl}}" />
+<meta property="article:published_time" content="{{date}}" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="{{title}}" />
+<meta name="twitter:description" content="{{excerpt}}" />
+{{fontLink}}
+<link rel="stylesheet" href="{{base}}styles.css" />
+<style>:root{--accent:{{accent}}}</style>
+<script>
+  try {
+    var saved = localStorage.getItem('notebook-theme');
+    if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+    else if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
+    else document.documentElement.dataset.theme = 'light';
+  } catch (e) {}
+</script>
+</head>
+<body>
+<div class="atmosphere" aria-hidden="true"></div>
+<div class="read-progress" id="read-progress" aria-hidden="true"></div>
+
+<article class="page" id="page">
+  <a class="back" href="{{base}}">← 回到 {{siteTitle}}</a>
+  <span class="card-eyebrow"><span class="dot"></span>{{modeEmoji}} {{mode}} · {{date}}</span>
+  <h1 class="panel-line" id="panel-line" style="margin-top:1rem">{{title}}</h1>
+  <div class="panel-meta" id="panel-meta">{{meta}}</div>
+  <div class="panel-rule"></div>
+  <p class="seed-note">{{seedHtml}}</p>
+  {{quoteHtml}}
+  <div class="journey" id="panel-journey">{{stops}}</div>
+  <div class="page-foot">
+    <a class="icon-btn" href="{{base}}#{{slug}}">在卡片墙上打开</a>
+    <button class="icon-btn" id="copy-link" type="button">复制链接</button>
+  </div>
+</article>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+  // Progressive enhancement for the standalone page: reveal stops and add copy/cross-links.
+  (function () {
+    var stops = document.querySelectorAll('.stop');
+    stops.forEach(function (s) { s.classList.add('is-in'); });
+    var toast = document.getElementById('toast');
+    function say(msg) {
+      if (!toast) return;
+      toast.textContent = msg;
+      toast.classList.add('is-on');
+      setTimeout(function () { toast.classList.remove('is-on'); }, 1800);
+    }
+    var btn = document.getElementById('copy-link');
+    if (btn) btn.addEventListener('click', function () {
+      navigator.clipboard.writeText(location.href).then(function () { say('链接已复制'); }, function () { say('复制失败，请手动复制'); });
+    });
+    var bar = document.getElementById('read-progress');
+    if (bar) window.addEventListener('scroll', function () {
+      var h = document.documentElement.scrollHeight - window.innerHeight;
+      bar.style.transform = 'scaleX(' + (h > 0 ? Math.min(1, window.scrollY / h) : 0) + ')';
+    }, { passive: true });
+  })();
+</script>
+</body>
+</html>
