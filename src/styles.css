@@ -774,7 +774,8 @@ kbd {
   color: var(--ink-2);
 }
 
-.foot-links { display: flex; gap: 1.1rem; flex-wrap: wrap; }
+.foot-author { color: var(--ink); }
+.foot-links { display: flex; gap: 0.6rem 1.1rem; flex-wrap: wrap; }
 .foot a { border-bottom: 1px solid transparent; }
 .foot a:hover { color: var(--ink); border-bottom-color: var(--ink-3); }
 
