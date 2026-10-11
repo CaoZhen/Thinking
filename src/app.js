@@ -104,6 +104,19 @@
     return $$('.chip', chipRow);
   }
 
+  function lastVisible(chips) {
+    for (var i = chips.length - 1; i >= 0; i -= 1) if (!chips[i].hidden) return chips[i];
+    return null;
+  }
+
+  // Measure the actual right edge of the last visible chip instead of trusting
+  // scrollWidth: a chip must never sit half-clipped at the fold.
+  function overflows(chips) {
+    var last = lastVisible(chips);
+    if (!last) return false;
+    return last.getBoundingClientRect().right > chipRow.getBoundingClientRect().right + 0.5;
+  }
+
   function fitChips() {
     if (!chipRow || !chipToggle) return;
     var chips = visibleChips();
@@ -113,11 +126,12 @@
     chipToggle.textContent = '展开 ▾';
     chips.forEach(function (c) { c.hidden = false; });
     chipToggle.hidden = true;
-    if (chipRow.scrollWidth <= chipRow.clientWidth + 1) return;
+    if (!overflows(chips)) return;
+
     chipToggle.hidden = false;
     for (var i = chips.length - 1; i >= 1; i -= 1) {
       chips[i].hidden = true;
-      if (chipRow.scrollWidth <= chipRow.clientWidth + 1) break;
+      if (!overflows(chips)) break;
     }
   }
 
@@ -184,14 +198,23 @@
     });
   }
 
+  // Re-fold whenever the space itself changes: window resizes, webfonts
+  // landing late, a scrollbar appearing. Observing .filters (whose width does
+  // not depend on the toggle) keeps this from oscillating.
   var resizeTimer;
-  window.addEventListener('resize', function () {
+  function refit() {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(fitChips, 150);
-  });
+    resizeTimer = setTimeout(fitChips, 120);
+  }
+
+  window.addEventListener('resize', refit);
   fitChips();
   window.addEventListener('load', fitChips);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitChips);
+  if (window.ResizeObserver && chipRow) {
+    var filters = chipRow.closest('.filters') || chipRow;
+    new ResizeObserver(refit).observe(filters);
+  }
 
   /* ---------- reading panel -------------------------------------------- */
   var overlay = $('#overlay');
