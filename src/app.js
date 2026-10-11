@@ -1,6 +1,6 @@
 /* ==========================================================================
-   思笺 · Thought Cards — interactions
-   Vanilla ES module, no build step, no dependencies.
+   思笺 · Thought Cards — interactions (pass 2)
+   Motion only answers a person's action: opening a card, expanding filters.
    ========================================================================== */
 (function () {
   'use strict';
@@ -12,17 +12,22 @@
   try { DATA = JSON.parse(dataEl.textContent); } catch (e) { return; }
   var cards = DATA.cards || [];
   var bySlug = {};
-  cards.forEach(function (c, i) { c.index = i; bySlug[c.slug] = c; });
+  cards.forEach(function (card, i) { card.index = i; bySlug[card.slug] = card; });
 
   var $ = function (sel, root) { return (root || document).querySelector(sel); };
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
-
-  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var root = document.documentElement;
 
-  /* ---------- toast ---------------------------------------------------- */
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, function (ch) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
+    });
+  }
+
+  /* ---------- toast + clipboard ---------------------------------------- */
   var toastEl = $('#toast');
   var toastTimer;
+
   function say(message) {
     if (!toastEl) return;
     toastEl.textContent = message;
@@ -30,6 +35,7 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { toastEl.classList.remove('is-on'); }, 1900);
   }
+
   function copyText(text, okMessage) {
     var done = function () { say(okMessage || '已复制'); };
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -43,8 +49,16 @@
     }
   }
 
+  $$('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var target = document.querySelector(btn.dataset.copy);
+      if (target) copyText(target.textContent.trim(), '已复制到剪贴板');
+    });
+  });
+
   /* ---------- theme ---------------------------------------------------- */
   var themeBtn = $('#theme-toggle');
+
   function paintThemeIcons() {
     if (!themeBtn) return;
     var dark = root.dataset.theme === 'dark';
@@ -53,6 +67,7 @@
     if (sun) sun.hidden = !dark;
     themeBtn.setAttribute('aria-pressed', String(dark));
   }
+
   paintThemeIcons();
   if (themeBtn) {
     themeBtn.addEventListener('click', function () {
@@ -63,20 +78,69 @@
     });
   }
 
-  /* ---------- filtering ------------------------------------------------ */
+  /* ---------- the skill strip ------------------------------------------ */
+  var briefToggle = $('#brief-toggle');
+  var briefDetail = $('#brief-detail');
+  if (briefToggle && briefDetail) {
+    briefToggle.addEventListener('click', function () {
+      var opening = briefDetail.hidden;
+      briefDetail.hidden = !opening;
+      briefToggle.setAttribute('aria-expanded', String(opening));
+      briefToggle.textContent = opening ? '收起步骤' : '详细步骤';
+    });
+  }
+
+  /* ---------- filters -------------------------------------------------- */
   var grid = $('#grid');
   var cardEls = $$('.card', grid);
-  var chipsWrap = $('#chips');
+  var chipRow = $('#chips');
+  var chipToggle = $('#chip-toggle');
   var searchInput = $('#q');
   var activeFilter = '*';
   var query = '';
   var emptyNote = null;
 
-  function haystack(card) {
-    var c = bySlug[card.dataset.slug];
-    if (!c) return card.textContent || '';
-    var stops = (c.stops || []).map(function (s) { return s.title + ' ' + (s.text || ''); }).join(' ');
-    return [c.title, c.mode, (c.tags || []).join(' '), c.seed, c.place, stops].join(' ');
+  function visibleChips() {
+    return $$('.chip', chipRow);
+  }
+
+  function fitChips() {
+    if (!chipRow || !chipToggle) return;
+    var chips = visibleChips();
+    if (!chips.length) return;
+    chipRow.classList.remove('is-open');
+    chipToggle.setAttribute('aria-expanded', 'false');
+    chipToggle.textContent = '展开 ▾';
+    chips.forEach(function (c) { c.hidden = false; });
+    chipToggle.hidden = true;
+    if (chipRow.scrollWidth <= chipRow.clientWidth + 1) return;
+    chipToggle.hidden = false;
+    for (var i = chips.length - 1; i >= 1; i -= 1) {
+      chips[i].hidden = true;
+      if (chipRow.scrollWidth <= chipRow.clientWidth + 1) break;
+    }
+  }
+
+  if (chipToggle) {
+    chipToggle.addEventListener('click', function () {
+      var opening = !chipRow.classList.contains('is-open');
+      if (opening) {
+        visibleChips().forEach(function (c) { c.hidden = false; });
+        chipRow.classList.add('is-open');
+      } else {
+        fitChips();
+        opening = false;
+      }
+      chipToggle.setAttribute('aria-expanded', String(opening));
+      chipToggle.textContent = opening ? '收起 ▴' : '展开 ▾';
+    });
+  }
+
+  function haystack(el) {
+    var card = bySlug[el.dataset.slug];
+    if (!card) return el.textContent || '';
+    var stops = (card.stops || []).map(function (s) { return s.title + ' ' + (s.text || ''); }).join(' ');
+    return [card.title, card.mode, (card.tags || []).join(' '), card.seed, card.place, stops].join(' ');
   }
 
   function applyFilter() {
@@ -90,29 +154,25 @@
       var qHit = !q || (el._hay || (el._hay = haystack(el))).toLowerCase().indexOf(q) !== -1;
       var visible = tagHit && qHit;
       el.classList.toggle('is-hidden', !visible);
-      if (visible) {
-        shown += 1;
-        el.style.setProperty('--i', String(Math.min(shown, 14)));
-      }
+      if (visible) shown += 1;
     });
-    if (emptyNote) emptyNote.remove();
+    if (emptyNote) { emptyNote.remove(); emptyNote = null; }
     if (!shown) {
       emptyNote = document.createElement('p');
       emptyNote.className = 'empty-note';
-      emptyNote.textContent = '这里暂时没有卡片 —— 换个词，或者让 Agent 写一张新的。';
+      emptyNote.textContent = '这里没有卡片。换个词，或者让 Agent 写一张新的。';
       grid.appendChild(emptyNote);
     }
   }
 
-  if (chipsWrap) {
-    chipsWrap.addEventListener('click', function (event) {
+  if (chipRow) {
+    chipRow.addEventListener('click', function (event) {
       var chip = event.target.closest('.chip');
       if (!chip) return;
       activeFilter = chip.dataset.value;
-      $$('.chip', chipsWrap).forEach(function (c) {
-        c.setAttribute('aria-pressed', String(c === chip));
-      });
+      visibleChips().forEach(function (c) { c.setAttribute('aria-pressed', String(c === chip)); });
       applyFilter();
+      if (chipRow.classList.contains('is-open')) fitChips();
     });
   }
 
@@ -124,20 +184,16 @@
     });
   }
 
-  /* ---------- pointer spotlight --------------------------------------- */
-  if (!reduceMotion && window.matchMedia('(hover: hover)').matches) {
-    cardEls.forEach(function (el) {
-      var spot = $('.card-spot', el);
-      if (!spot) return;
-      el.addEventListener('pointermove', function (event) {
-        var rect = el.getBoundingClientRect();
-        spot.style.setProperty('--mx', ((event.clientX - rect.left) / rect.width * 100).toFixed(1) + '%');
-        spot.style.setProperty('--my', ((event.clientY - rect.top) / rect.height * 100).toFixed(1) + '%');
-      });
-    });
-  }
+  var resizeTimer;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(fitChips, 150);
+  });
+  fitChips();
+  window.addEventListener('load', fitChips);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitChips);
 
-  /* ---------- overlay -------------------------------------------------- */
+  /* ---------- reading panel -------------------------------------------- */
   var overlay = $('#overlay');
   if (!overlay) return;
 
@@ -153,24 +209,19 @@
   var current = null;
   var lastFocus = null;
   var stopsObserver = null;
+  var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function metaHtml(card) {
-    var bits = ['<span>' + card.date + '</span>'];
+    var bits = ['<span>' + card.date.replace(/-/g, '.') + '</span>'];
     if (card.place) bits.push('<span>' + escapeHtml(card.place) + '</span>');
     bits.push('<span>约 ' + card.minutes + ' 分钟</span>');
     (card.tags || []).forEach(function (t) { bits.push('<span>#' + escapeHtml(t) + '</span>'); });
     return bits.join('');
   }
 
-  function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, function (ch) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch];
-    });
-  }
-
   function render(card) {
     current = card;
-    elMode.textContent = card.modeEmoji + ' ' + card.mode;
+    elMode.textContent = card.mode;
     elLine.textContent = card.title;
     elMeta.innerHTML = metaHtml(card);
 
@@ -195,29 +246,48 @@
     }).join('');
 
     elPermalink.setAttribute('href', DATA.base + 'c/' + card.slug + '/');
-    elIndex.textContent = '№ ' + String(card.index + 1).padStart(2, '0') + ' / ' + cards.length;
+    elIndex.textContent = (card.index + 1) + ' / ' + cards.length;
 
     panelScroll.scrollTop = 0;
     observeStops();
     moveProgress(0);
   }
 
+  function revealStop(el) { el.classList.add('is-in'); }
+
   function observeStops() {
     if (stopsObserver) stopsObserver.disconnect();
+    elJourney.classList.remove('is-animated');
     var stops = $$('.stop', elJourney);
     if (reduceMotion || !('IntersectionObserver' in window)) {
-      stops.forEach(function (s) { s.classList.add('is-in'); });
+      stops.forEach(revealStop);
       return;
     }
+
+    elJourney.classList.add('is-animated');
+
+    // Anything already inside the reading viewport shows immediately: the
+    // observer cannot be trusted to fire for content restored from display:none.
+    requestAnimationFrame(function () {
+      var box = panelScroll.getBoundingClientRect();
+      stops.forEach(function (el) {
+        if (el.getBoundingClientRect().top < box.bottom - 24) revealStop(el);
+      });
+    });
+
     stopsObserver = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
         if (entry.isIntersecting) {
-          entry.target.classList.add('is-in');
+          revealStop(entry.target);
           stopsObserver.unobserve(entry.target);
         }
       });
-    }, { root: panelScroll, rootMargin: '0px 0px -8% 0px', threshold: 0.12 });
-    stops.forEach(function (s) { stopsObserver.observe(s); });
+    }, { root: panelScroll, rootMargin: '0px 0px -6% 0px', threshold: 0.1 });
+    stops.forEach(function (el) { stopsObserver.observe(el); });
+
+    // Failsafe: nothing may stay invisible, whatever the browser does.
+    clearTimeout(observeStops._t);
+    observeStops._t = setTimeout(function () { stops.forEach(revealStop); }, 1600);
   }
 
   function moveProgress(ratio) {
@@ -250,8 +320,8 @@
     if (!opts.silent) {
       try { history.pushState({ slug: card.slug }, '', '#' + card.slug); } catch (e) { location.hash = card.slug; }
     }
-    var closeBtn = $('#panel-close');
-    if (closeBtn) closeBtn.focus({ preventScroll: true });
+    var dialog = $('.panel', overlay);
+    if (dialog && dialog.focus) dialog.focus({ preventScroll: true });
   }
 
   function close(options) {
@@ -271,17 +341,26 @@
     var pool = visibleCards();
     if (!pool.length) return;
     var at = current ? pool.indexOf(bySlug[current.slug]) : -1;
-    var next = pool[(at + delta + pool.length) % pool.length];
-    open(next);
+    open(pool[(at + delta + pool.length) % pool.length]);
   }
 
-  grid.addEventListener('click', function (event) {
-    var link = event.target.closest('a.card-link');
-    if (!link) return;
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
-    event.preventDefault();
-    open(bySlug[link.dataset.slug]);
-  });
+  function random() {
+    var pool = visibleCards();
+    if (!pool.length) { say('没有可打开的卡片'); return; }
+    var pick = pool[Math.floor(Math.random() * pool.length)];
+    if (current && pool.length > 1 && pick.slug === current.slug) pick = pool[(pool.indexOf(pick) + 1) % pool.length];
+    open(pick);
+  }
+
+  if (grid) {
+    grid.addEventListener('click', function (event) {
+      var link = event.target.closest('a.card-link');
+      if (!link) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      open(bySlug[link.dataset.slug]);
+    });
+  }
 
   $$('[data-close]', overlay).forEach(function (el) { el.addEventListener('click', function () { close(); }); });
   var closeBtn = $('#panel-close');
@@ -294,18 +373,8 @@
   if (copyBtn) copyBtn.addEventListener('click', function () {
     if (!current) return;
     var url = new URL(DATA.base + 'c/' + current.slug + '/', location.href).href;
-    var text = '「' + current.title + '」\n\n' + current.seed + '\n\n' + url;
-    copyText(text, '卡片与链接已复制');
+    copyText('「' + current.title + '」\n\n' + current.seed + '\n\n' + url, '卡片与链接已复制');
   });
-
-  function random() {
-    var pool = visibleCards();
-    if (!pool.length) { say('没有可打开的卡片'); return; }
-    var pick = pool[Math.floor(Math.random() * pool.length)];
-    if (current && pool.length > 1 && pick.slug === current.slug) pick = pool[(pool.indexOf(pick) + 1) % pool.length];
-    open(pick);
-  }
-
   var randomTop = $('#random');
   if (randomTop) randomTop.addEventListener('click', random);
 
@@ -326,28 +395,12 @@
     else if (event.key === 'r' || event.key === 'R') random();
   });
 
-  $$('.copy-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var target = document.querySelector(btn.dataset.copy);
-      if (target) copyText(target.textContent.trim(), '已复制到剪贴板');
-    });
-  });
-
   window.addEventListener('popstate', function () {
     var slug = decodeURIComponent(location.hash.replace(/^#/, ''));
     if (slug && bySlug[slug]) open(bySlug[slug], { silent: true });
     else if (!overlay.hidden) close({ silent: true });
   });
 
-  // Tabs animate in only after the first paint, so the grid feels composed.
-  requestAnimationFrame(function () { document.body.classList.add('is-ready'); });
-
-  // Deep link support: /#slug or /c/slug/ redirecting back with a hash.
   var initial = decodeURIComponent(location.hash.replace(/^#/, ''));
-  if (initial && bySlug[initial]) {
-    open(bySlug[initial], { silent: true });
-  } else {
-    var redirect = new URLSearchParams(location.search).get('card');
-    if (redirect && bySlug[redirect]) open(bySlug[redirect]);
-  }
+  if (initial && bySlug[initial]) open(bySlug[initial], { silent: true });
 })();

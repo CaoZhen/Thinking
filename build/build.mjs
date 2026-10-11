@@ -65,19 +65,17 @@ function fill(template, values) {
     Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : whole);
 }
 
-function cardMarkup(card, base, i) {
-  const tags = (card.tags || []).map((t) => `<span>${escapeHtml(t)}</span>`).join('');
-  return `      <article class="card" style="--i:${Math.min(i, 14)}" data-slug="${card.slug}" data-mode="${escapeHtml(card.mode)}" data-tags="${escapeHtml((card.tags || []).join('|'))}">
-        <span class="card-spot" aria-hidden="true"></span>
+function cardMarkup(card, base) {
+  const tags = (card.tags || []).map((t) => `#${escapeHtml(t)}`).join(' ');
+  return `      <article class="card" data-slug="${card.slug}" data-mode="${escapeHtml(card.mode)}" data-tags="${escapeHtml((card.tags || []).join('|'))}">
         <a class="card-link" href="${base}c/${card.slug}/" data-slug="${card.slug}">
-          <span class="card-eyebrow"><span class="dot"></span>${card.modeEmoji} ${escapeHtml(card.mode)}<span class="spacer"></span>№ ${String(i + 1).padStart(2, '0')}</span>
+          <span class="card-tab">${escapeHtml(card.mode)}</span>
           <h2 class="card-line">${escapeHtml(card.title)}</h2>
-          <p class="card-seed">${escapeHtml(card.seed || card.excerpt || '')}</p>
+          <p class="card-note">${escapeHtml(card.seed || card.excerpt || '')}</p>
           <span class="card-foot">
-            <time datetime="${card.date}">${fmtDate(card.date)}</time>
+            <time datetime="${card.date}">${card.date.replace(/-/g, '.')}</time>
             <span class="card-tags">${tags}</span>
           </span>
-          <span class="card-arrow" aria-hidden="true">↗</span>
         </a>
       </article>`;
 }
@@ -96,16 +94,16 @@ function buildChips(cards) {
     modes.set(card.mode, (modes.get(card.mode) || 0) + 1);
     for (const tag of card.tags || []) tags.set(tag, (tags.get(tag) || 0) + 1);
   }
-  const chip = (value, label, count, on) =>
-    `<button class="chip" type="button" data-value="${escapeHtml(value)}" aria-pressed="${on ? 'true' : 'false'}">${label}<span class="sr-only">（${count}）</span></button>`;
+  // Counts live on "全部" only; a filter row is a set of words, not a table.
+  const chip = (value, label, on) =>
+    `<button class="chip" type="button" data-value="${escapeHtml(value)}" aria-pressed="${on ? 'true' : 'false'}">${label}</button>`;
 
-  const parts = [chip('*', `全部 ${cards.length}`, cards.length, true)];
-  for (const [mode, count] of modes) {
-    const emoji = MODES[mode]?.emoji ?? '✎';
-    parts.push(chip(mode, `${emoji} ${escapeHtml(mode)} ${count}`, count, false));
-  }
-  const topTags = [...tags.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8);
-  for (const [tag, count] of topTags) parts.push(chip(tag, `#${escapeHtml(tag)}`, count, false));
+  const parts = [chip('*', `全部 ${cards.length}`, true)];
+  for (const [mode] of modes) parts.push(chip(mode, escapeHtml(mode), false));
+  const topTags = [...tags.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 12);
+  for (const [tag] of topTags) parts.push(chip(tag, `#${escapeHtml(tag)}`, false));
   return parts.join('\n        ');
 }
 
@@ -216,6 +214,7 @@ function build() {
     title: site.title,
     subtitle: site.subtitle || '',
     tagline: site.tagline,
+    intro: site.intro || '',
     description: site.description,
     author: site.author,
     sealChar: (site.title || '思').trim().slice(0, 1),
@@ -230,7 +229,7 @@ function build() {
     updated,
     avgLen,
     chips: buildChips(cards),
-    cards: cards.map((c, i) => cardMarkup(c, base, i)).join('\n'),
+    cards: cards.map((c) => cardMarkup(c, base)).join('\n'),
     data: JSON.stringify(payload).replace(/</g, '\\u003c'),
     agentPrompt: escapeHtml(agentPrompt(site, siteUrl)),
   });
@@ -254,7 +253,7 @@ function build() {
       modeEmoji: card.modeEmoji,
       slug: card.slug,
       meta: [
-        `<span>${fmtDate(card.date)}</span>`,
+        `<span>${card.date.replace(/-/g, '.')}</span>`,
         card.place ? `<span>${escapeHtml(card.place)}</span>` : '',
         `<span>约 ${card.minutes} 分钟</span>`,
         ...(card.tags || []).map((t) => `<span>#${escapeHtml(t)}</span>`),

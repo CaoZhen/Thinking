@@ -7,6 +7,7 @@
 <meta name="description" content="{{description}}" />
 <meta name="author" content="{{author}}" />
 <meta name="theme-color" content="{{accent}}" />
+<meta name="color-scheme" content="light dark" />
 <link rel="icon" href="{{base}}favicon.svg" type="image/svg+xml" />
 <link rel="canonical" href="{{cardUrl}}" />
 <meta property="og:type" content="article" />
@@ -25,22 +26,21 @@
   try {
     var saved = localStorage.getItem('notebook-theme');
     if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
-    else if (window.matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.dataset.theme = 'dark';
-    else document.documentElement.dataset.theme = 'light';
-  } catch (e) {}
+    else document.documentElement.dataset.theme =
+      window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  } catch (e) { document.documentElement.dataset.theme = 'light'; }
 </script>
 </head>
 <body>
-<div class="atmosphere" aria-hidden="true"></div>
+<div class="paper-ground" aria-hidden="true"></div>
 <div class="read-progress" id="read-progress" aria-hidden="true"></div>
 
 <article class="page" id="page">
   <a class="back" href="{{base}}">← 回到 {{siteTitle}}</a>
-  <span class="card-eyebrow"><span class="dot"></span>{{modeEmoji}} {{mode}} · {{date}}</span>
-  <h1 class="panel-line" id="panel-line" style="margin-top:1rem">{{title}}</h1>
+  <h1 class="panel-line" id="panel-line">{{title}}</h1>
   <div class="panel-meta" id="panel-meta">{{meta}}</div>
   <div class="panel-rule"></div>
-  <p class="seed-note">{{seedHtml}}</p>
+  <p class="seed-note" id="panel-seed">{{seedHtml}}</p>
   {{quoteHtml}}
   <div class="journey" id="panel-journey">{{stops}}</div>
   <div class="page-foot">
@@ -51,10 +51,8 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>
-  // Progressive enhancement for the standalone page: reveal stops and add copy/cross-links.
   (function () {
-    var stops = document.querySelectorAll('.stop');
-    stops.forEach(function (s) { s.classList.add('is-in'); });
+    document.querySelectorAll('.stop').forEach(function (s) { s.classList.add('is-in'); });
     var toast = document.getElementById('toast');
     function say(msg) {
       if (!toast) return;
@@ -64,7 +62,10 @@
     }
     var btn = document.getElementById('copy-link');
     if (btn) btn.addEventListener('click', function () {
-      navigator.clipboard.writeText(location.href).then(function () { say('链接已复制'); }, function () { say('复制失败，请手动复制'); });
+      navigator.clipboard.writeText(location.href).then(
+        function () { say('链接已复制'); },
+        function () { say('复制失败，请手动复制'); }
+      );
     });
     var bar = document.getElementById('read-progress');
     if (bar) window.addEventListener('scroll', function () {
