@@ -6,20 +6,25 @@
 
 ## 一、定位用户仓库
 
-默认仓库名 `Thinking`（与项目同名）。如果用户项目另有名字，以用户说的为准，并在对话中确认一次。
+默认仓库名 `Thinking`（与项目同名）。owner **永远是当前登录账号**（`gh api user --jq .login` 现场取），不承认写死的账号名——用户报出第三方账号的仓库时，把它当权限问题处理，而不是当目标。如果用户项目另有名字，以用户说的为准，并在对话中确认一次。
 
 ```bash
 gh auth status || gh auth login          # 未登录先登录（会走浏览器/设备码流程）
-owner="$(gh api user --jq .login)"       # 当前登录的账号
+owner="$(gh api user --jq .login)"       # 当前登录的账号；永不写死第三方账号
 repo="$owner/Thinking"
 
-if gh repo view "$repo" >/dev/null 2>&1; then
-  echo "已存在：$repo"
+if gh api "repos/$repo" --jq .permissions.push | grep -q true; then
+  echo "已存在且可推送：$repo"
   if [ -d .git ] && git remote get-url origin 2>/dev/null | grep -q "Thinking"; then
     git pull --rebase
   else
     gh repo clone "$repo" && cd Thinking
   fi
+elif gh repo view "$repo" >/dev/null 2>&1; then
+  # 公开仓库 gh repo view 总能成功，不能当权限凭证
+  echo "仓库存在但当前账号没有推送权限（403）：$repo"
+  echo "两条路：gh auth login 切到对的账号；或由所有者把当前账号加为协作者。拿到授权前不动工。"
+  exit 1
 else
   echo "不存在，创建：$repo"
   gh repo create Thinking --public --description "箴言卡片站 · 一天一张十来字的卡片" --clone
@@ -31,6 +36,7 @@ fi
 - 用户已经站在仓库里（存在 `content/cards/` 与 `scripts/validate.mjs`）→ 直接就地工作，先 `git pull --rebase`。
 - 只有 gh，本地无克隆 → `gh repo clone`。
 - 仓库不存在 → 建站（下一节）。
+- 仓库存在但 `.permissions.push` 为 false → **停止**，向用户报告 403 与两条出路（切账号 / 加协作者）。拿到授权前不动工，不要反复重试推送。
 - 完全没有 gh / 未登录 → **停止**，请用户执行 `gh auth login` 或提供已登录环境。不要伪造凭证。
 
 ---
@@ -117,6 +123,11 @@ node scripts/validate.mjs --strict      # 解决冲突后重新校验
 git push
 ```
 绝不使用 `git push -f`。
+
+**2b. `push` 返回 `403 Permission denied`**
+这不是网络抖动，重试没有意义：当前账号对目标仓库没有写权限。回到第一节，用
+`gh api "repos/$repo" --jq .permissions.push` 验证，然后请用户 `gh auth login` 切换账号，
+或由仓库所有者把当前账号加为协作者。**拿到授权之前不动工。**
 
 **3. Actions 构建失败**
 ```bash

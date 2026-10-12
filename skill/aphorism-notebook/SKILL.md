@@ -1,6 +1,6 @@
 ---
 name: aphorism-notebook
-description: 为「思笺」箴言卡片站写新的箴言卡片并推送部署。当用户说「写一张卡片 / 今天来一张 / 更新箴言笔记 / 往 thinking 里加一条 / aphorism notebook / 给我一句箴言」时使用。它负责定位用户 GitHub 上的同名仓库（没有就新建），用多种思考模式（读新闻、回看当天会话与任务、追问一个从未想过的问题、观察生活即景、重读旧卡）进行多轮思考，把结论压成十来字的箴言，再写下它背后的旅程，最后校验并推送，触发 GitHub Pages 自动构建。
+description: 为「思笺」箴言卡片站写新的箴言卡片并推送部署。当用户说「写一张卡片 / 今天来一张 / 更新箴言笔记 / 往 thinking 里加一条 / aphorism notebook / 给我一句箴言」时使用。它负责定位当前登录 GitHub 账号下的同名仓库（没有就新建，绝不写入未授权的第三方仓库），用多种思考模式（读新闻、回看当天会话与任务、追问一个从未想过的问题、观察生活即景、重读旧卡）进行多轮思考，把结论压成十来字的箴言，再写下它背后的旅程，最后校验并推送，触发 GitHub Pages 自动构建。
 ---
 
 # 箴言笔记 · aphorism-notebook
@@ -42,17 +42,20 @@ description: 为「思笺」箴言卡片站写新的箴言卡片并推送部署�
 
 ## 2. 第 0 步：定位仓库
 
-目标仓库 = **用户自己 GitHub 账号下的同名仓库**（默认名 `Thinking`，若用户另有约定以此为准）。
+目标仓库 = **当前登录 GitHub 账号下的同名仓库**（默认名 `Thinking`）。owner 一律现场从登录态解析（`gh api user`），**不承认任何写死的账号或仓库地址**——用户报出一个第三方账号的仓库时，它不是目标，是一个待解决的权限问题。
 
 ```bash
-gh auth status                                    # 没有登录就先 gh auth login
+gh auth status                                            # 没有登录就先 gh auth login
 owner=$(gh api user --jq .login)
-gh repo view "$owner/Thinking" >/dev/null 2>&1 && echo exists || echo missing
+gh api "repos/$owner/Thinking" --jq .permissions.push     # 必须输出 true 才能继续
 ```
 
+注意：`gh repo view` 对任何公开仓库都会成功，**不能当作权限凭证**；判权限只认 `.permissions.push`。
+
 - **已在本仓库里**：`git pull --rebase` 后就地工作。
-- **仓库存在但本地没有**：`gh repo clone "$owner/Thinking" && cd Thinking`。
+- **仓库存在且 `.permissions.push` 为 true**：本地没有就 `gh repo clone "$owner/Thinking" && cd Thinking`。
 - **仓库不存在**：`gh repo create Thinking --public --description "箴言卡片站" --clone && cd Thinking`，然后把站点骨架放进去（见 `references/02-repo-and-publishing.md` 的「从零建站」）。
+- **`.permissions.push` 为 false / 推送报 403**：目标仓库不属于当前账号且未获授权。停下来向用户报告，给出两条路：`gh auth login` 切到对的账号，或由仓库所有者把当前账号加为协作者。**拿到授权之前不动工、不重试推送。**
 - **没有 gh / 未登录**：停下来，明确告诉用户需要 `gh auth login`，不要用假凭证或匿名方式绕。
 
 细节与故障处理：`references/02-repo-and-publishing.md`。
@@ -142,7 +145,7 @@ git push
 ```
 
 - 一次提交 = 一张（或同批的几张）卡片，不要混入无关改动。
-- 推送失败不要 `push -f`；先 `git pull --rebase`。处理方式见 `references/02-repo-and-publishing.md`。
+- 推送失败不要 `push -f`；先 `git pull --rebase`。若报 `403 Permission denied`，那不是网络问题，是权限问题——回到第 0 步查 `.permissions.push`，停下来找用户解决授权。处理方式见 `references/02-repo-and-publishing.md`。
 - 推送后 GitHub Actions 会自动构建部署（提交即更新）。
 
 ---

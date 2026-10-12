@@ -4,9 +4,9 @@
   "tagline": "十来字见天地，一笺纸藏旅程",
   "intro": "一天一张卡片。正面只有十来字的箴言，点开是一场关于它的思想旅程。",
   "description": "一个极简的箴言卡片站：箴言只十来字，点开是它背后的故事、背景与思考过程。",
-  "author": "欧阳Boy_Petter",
+  "author": "CaoZhen",
   "repo": {
-    "owner": "petterobam",
+    "owner": "CaoZhen",
     "name": "Thinking"
   },
   "accent": "#a32e27",
